@@ -6,33 +6,15 @@ Description: >
 Parameters:
   AccountID:
     Type: String
-    Description: "ID da Conta AWS"
+    Description: ID AWS Account
   Region:
     Type: String
-    Description: "Região AWS"
-  AppName:
+    Description: Region AWS Account
+  Email:
     Type: String
-    Description: "discoveryDaredeEc2"
+    Description: Mail or mail group for notifications
 
 Resources:
-  EventBridgeRule:
-    Type: AWS::Events::Rule
-    Properties:
-      EventPattern:
-        source:
-          - "aws.ec2"
-        detail-type:
-          - "AWS API Call via CloudTrail"
-        detail:
-          eventSource:
-            - "ec2.amazonaws.com"
-          eventName:
-            - "RunInstances"
-      State: "ENABLED"
-      Targets:
-        - Arn: !GetAtt LambdaFunction.Arn
-          Id: "TargetFunction"
-  
   LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -93,12 +75,30 @@ Resources:
                   - "sns:Publish"
                 Resource: !Sub "arn:aws:sns:${Region}:${AccountID}:EC2Notifications"
 
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - "aws.ec2"
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - "ec2.amazonaws.com"
+          eventName:
+            - "RunInstances"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: "TargetFunction"
+  
   EC2NotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: "EC2Notifications"
       Subscription:
-        - Endpoint: "lucas.caardoso@darede.com.br"
+        - Endpoint: "lucas.cardoso@darede.com.br"
           Protocol: "email"
 
 Outputs:
