@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   Solução AWS que usa Lambda, EventBridge, SNS e CloudFormation para monitorar
-  a criação de instâncias EC2 e enviar notificações via SNS com o usuário que criou a instância.
+  a criação de buckets S3 e enviar notificações via SNS com o usuário que criou o bucket.
 
 Parameters:
   AccountID:
@@ -20,14 +20,14 @@ Resources:
     Properties:
       EventPattern:
         source:
-          - "aws.ec2"
+          - "aws.s3"
         detail-type:
           - "AWS API Call via CloudTrail"
         detail:
           eventSource:
-            - "ec2.amazonaws.com"
+            - "s3.amazonaws.com"
           eventName:
-            - "RunInstances"
+            - "CreateBucket"
       State: "ENABLED"
       Targets:
         - Arn: !GetAtt LambdaFunction.Arn
@@ -50,11 +50,12 @@ Resources:
               detail = event['detail']
               user_identity = detail['userIdentity']
               user = user_identity.get('userName', user_identity.get('principalId'))
-              message = f"Usuário {user} criou uma instância EC2."
+              bucket_name = detail['requestParameters']['bucketName']
+              message = f"Usuário {user} criou um bucket S3 com nome {bucket_name}."
               sns_client.publish(
-                  TopicArn=f'arn:aws:sns:{os.environ["Region"]}:{os.environ["ID"]}:EC2Notifications',
+                  TopicArn=f'arn:aws:sns:{os.environ["Region"]}:{os.environ["ID"]}:S3Notifications',
                   Message=message,
-                  Subject='Nova instância EC2 criada'
+                  Subject='Novo bucket S3 criado'
               )
               return {
                   'statusCode': 200,
@@ -91,7 +92,7 @@ Resources:
               - Effect: "Allow"
                 Action:
                   - "sns:Publish"
-                Resource: !Sub "arn:aws:sns:${Region}:${AccountID}:EC2Notifications"
+                Resource: !Sub "arn:aws:sns:${Region}:${AccountID}:S3Notifications"
 
   LambdaInvokePermission:
     Type: AWS::Lambda::Permission
@@ -101,15 +102,15 @@ Resources:
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt EventBridgeRule.Arn
 
-  EC2NotificationTopic:
+  S3NotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: "EC2Notifications"
+      TopicName: "S3Notifications"
       Subscription:
         - Endpoint: "lucas.cardoso@darede.com.br"
           Protocol: "email"
 
 Outputs:
   SNSTopicArn:
-    Description: "ARN do tópico SNS para notificações de EC2."
-    Value: !Ref EC2NotificationTopic
+    Description: "ARN do tópico SNS para notificações de S3."
+    Value: !Ref S3NotificationTopic
